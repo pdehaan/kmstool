@@ -22,7 +22,7 @@ def rm_rf(path):
             rmdir(join(root, name))
     rmdir(path)
 
-# get_profile will use the config file for aws cli 
+# get_profile will use the config file for aws cli
 # provide a profile name it will fetch credentials
 def get_profile(profile='default'):
     # if profile is not default need prefix profile
@@ -42,14 +42,14 @@ def get_profile(profile='default'):
 
 # connect to kms with boto3
 def connect(profile="default"):
-    # if using default profile or role we dont need to pass creds 
+    # if using default profile or role we dont need to pass creds
     if profile == "default":
-        kms = boto3.client('kms')
+        kms = client('kms')
     else:
         profile = get_profile(profile)
         session = Session(aws_access_key_id=profile['aws_access_key_id'],
                   aws_secret_access_key=profile['aws_secret_access_key'],
-                  region_name=profile['region']) 
+                  region_name=profile['region'])
         kms = session.client('kms')
     return kms
 
@@ -114,7 +114,7 @@ def main():
     # connect to kms
     kms = connect(opts.profile)
     workingdir = "/var/tmp/kmstool/" # directory for temp files
-    try: 
+    try:
         mkdir(workingdir)
     except:
         rm_rf(workingdir)
@@ -123,13 +123,13 @@ def main():
     enc_file = join(workingdir, 'file.enc')
     cipher_file = join(workingdir, 'key.enc')
 
-    if opts.encrypt:  
+    if opts.encrypt:
         # get a data key from kms
         response = kms.generate_data_key(KeyId=opts.key_id, KeySpec=opts.key_spec)
         # key comes in as binary so we encode it
         key = base64.b64encode(response['Plaintext'])
-        # this is the encrypted version we store with the data 
-        ciphertext = response['CiphertextBlob']    
+        # this is the encrypted version we store with the data
+        ciphertext = response['CiphertextBlob']
 
         with open(opts.file, 'rb') as in_file, open(enc_file, 'wb') as out_file:
             encrypt(in_file, out_file, key)
@@ -145,20 +145,19 @@ def main():
         tar = tarfile.open(opts.file)
         tar.extractall(workingdir)
         tar.close()
-        # read ciphertext key  
+        # read ciphertext key
         with open(cipher_file, 'rb') as open_file:
             ciphertext = open_file.read()
         # decrypt via kms
         response = kms.decrypt(CiphertextBlob=ciphertext)
         # encode the binary key so it's the same as it was for encrypt
-        key = base64.b64encode(response['Plaintext']) 
+        key = base64.b64encode(response['Plaintext'])
         with open(enc_file, 'rb') as in_file, open(opts.output, 'wb') as out_file:
             decrypt(in_file, out_file, key)
-    
-    # clean up working directory 
+
+    # clean up working directory
     rm_rf(workingdir)
 
 if __name__ == '__main__':
     try: main()
     except: raise
-
